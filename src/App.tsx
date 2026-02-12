@@ -115,9 +115,21 @@ export default function App() {
 
   // Photo set controls
   const [photoSet, setPhotoSet] = useState<PhotoSetKey>("people");
+  const [photoOffset, setPhotoOffset] = useState<number>(0);
 
   // Load local images dynamically
   const { items: localImageItems, isLoading: localImagesLoading, error: localImagesError } = useLocalImages();
+
+  // Reset offset when photo set changes
+  const handlePhotoSetChange = (newPhotoSet: PhotoSetKey) => {
+    setPhotoSet(newPhotoSet);
+    setPhotoOffset(0);
+  };
+
+  // Rotate to next set of photos
+  const handleRotatePhotos = () => {
+    setPhotoOffset((prev) => prev + 1);
+  };
 
   const heroPreset = RATIO_PRESETS[heroRatio];
   const secondaryPreset = RATIO_PRESETS[secondaryRatio];
@@ -134,33 +146,38 @@ export default function App() {
         return [];
       }
       // Apply selected aspect ratios to local images for testing
-      return localImageItems.slice(0, scenarioCount).map((item, index) => {
-        // First image uses hero ratio, rest use secondary ratio
-        const isHero = index === 0;
+      // Use offset to rotate through different photos
+      const items: MediaItem[] = [];
+      for (let i = 0; i < scenarioCount; i++) {
+        const itemIndex = (photoOffset + i) % localImageItems.length;
+        const item = localImageItems[itemIndex];
+        const isHero = i === 0;
         const preset = isHero ? heroPreset : secondaryPreset;
 
-        return {
+        items.push({
           ...item,
           width: preset.w,
           height: preset.h,
-        };
-      });
+        });
+      }
+      return items;
     }
 
-    // Existing Unsplash logic
+    // Existing Unsplash logic with offset
     const set = PHOTO_SETS[photoSet];
+    const heroIndex = photoOffset % set.hero.length;
 
     const hero: MediaItem =
       scenario === "missing-metadata"
         ? {
             id: "1",
             // still use Unsplash, but omit width/height to simulate missing metadata
-            src: `https://images.unsplash.com/${set.hero[0]}?w=1200&h=900&fit=crop&crop=center&auto=format`,
+            src: `https://images.unsplash.com/${set.hero[heroIndex]}?w=1200&h=900&fit=crop&crop=center&auto=format`,
             alt: "no metadata hero",
           }
         : makeUnsplashItem(
             "1",
-            set.hero[0],
+            set.hero[heroIndex],
             heroPreset.w,
             heroPreset.h,
             `Hero (${set.label})`
@@ -169,7 +186,8 @@ export default function App() {
     const secondaries: MediaItem[] = Array.from({ length: Math.max(0, scenarioCount - 1) }).map(
       (_, i) => {
         const id = String(i + 2);
-        const photoId = set.secondary[i % set.secondary.length];
+        const photoIndex = (photoOffset + i) % set.secondary.length;
+        const photoId = set.secondary[photoIndex];
 
         if (scenario === "missing-metadata") {
           return {
@@ -201,6 +219,7 @@ export default function App() {
     secondaryRatio,
     photoSet,
     localImageItems,
+    photoOffset,
   ]);
 
   const heroOrientation =
@@ -288,7 +307,7 @@ export default function App() {
 
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
             Photo set
-            <select value={photoSet} onChange={(e) => setPhotoSet(e.target.value as PhotoSetKey)}>
+            <select value={photoSet} onChange={(e) => handlePhotoSetChange(e.target.value as PhotoSetKey)}>
               {Object.entries(PHOTO_SETS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v.label}
@@ -296,6 +315,22 @@ export default function App() {
               ))}
             </select>
           </label>
+
+          <button
+            onClick={handleRotatePhotos}
+            style={{
+              padding: "6px 12px",
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+          >
+            🔄 Rotate photos
+          </button>
 
           <div style={{ color: "#6b7280", fontSize: 13 }}>
             Hero: {heroPreset.w}×{heroPreset.h} → {heroOrientation}
