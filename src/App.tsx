@@ -125,6 +125,10 @@ export default function App() {
     const maxOffset = photoSet === "local"
       ? localImageItems.length
       : Math.max(PHOTO_SETS[photoSet].hero.length, PHOTO_SETS[photoSet].secondary.length);
+
+    // Safety check: prevent division by zero
+    if (maxOffset === 0) return;
+
     setPhotoOffset(Math.floor(Math.random() * maxOffset));
     // Only force orientation for Unsplash images (local images will auto-detect)
     setForceOrientation(photoSet === "local" ? null : (Math.random() > 0.5 ? "portrait" : "landscape"));
@@ -136,33 +140,18 @@ export default function App() {
   }, [scenario]);
 
   const mediaItems: MediaItem[] = useMemo(() => {
-    // Special handling for local images - detect orientation from natural dimensions
+    // Special handling for local images - preserve natural dimensions for orientation detection
     if (photoSet === "local") {
       if (localImageItems.length === 0) {
         return [];
       }
-      // Detect hero orientation from actual image dimensions
-      const heroIndex = photoOffset % localImageItems.length;
-      const heroItem = localImageItems[heroIndex];
-      const heroIsPortrait = heroItem.height && heroItem.width ? heroItem.height > heroItem.width : false;
-
-      // Apply locked dimensions based on detected orientation
+      // For local images, just return them with their natural dimensions
+      // The collage component will handle aspect ratios based on these
       const items: MediaItem[] = [];
       for (let i = 0; i < scenarioCount; i++) {
         const itemIndex = (photoOffset + i) % localImageItems.length;
         const item = localImageItems[itemIndex];
-        const isHero = i === 0;
-
-        // Choose dimensions based on detected hero orientation
-        const dims = isHero
-          ? (heroIsPortrait ? LOCKED_DIMENSIONS.HERO_PORTRAIT : LOCKED_DIMENSIONS.HERO_LANDSCAPE)
-          : LOCKED_DIMENSIONS.SECONDARY;
-
-        items.push({
-          ...item,
-          width: dims.w,
-          height: dims.h,
-        });
+        items.push(item);
       }
       return items;
     }

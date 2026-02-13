@@ -180,11 +180,12 @@ export default function EngageImageCollage({
 
     if (hero.width && hero.height && hero.width > 0 && hero.height > 0) {
       const naturalRatio = hero.height / hero.width;
-      // Cap portrait at 1.5:1 (prevents very tall images like 9:16)
-      // Cap landscape at 0.5:1 (prevents very wide images like 16:9)
-      if (naturalRatio > 1.5) {
+      // Cap portrait at 1.5:1 (prevents very tall images like 9:16 = 1.78)
+      // Cap landscape at 0.5:1 (prevents very wide images like 16:9 = 0.56)
+      // Using >= to ensure boundary cases are capped
+      if (naturalRatio >= 1.5) {
         aspectRatio = LOCKED_RATIOS.HERO_PORTRAIT; // 4:5 = 1.25
-      } else if (naturalRatio < 0.5) {
+      } else if (naturalRatio <= 0.5) {
         aspectRatio = LOCKED_RATIOS.HERO_LANDSCAPE; // 3:2 = 0.667
       } else {
         // Use natural aspect ratio
