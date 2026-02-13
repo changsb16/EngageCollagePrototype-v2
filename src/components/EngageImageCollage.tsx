@@ -16,14 +16,13 @@ type EngageImageCollageProps = {
   portraitHeroWidthPct?: number; // default 66 (you liked ~66–70)
 };
 
-function arFromItem(item: MediaItem, fallback: string): string {
-  const w = item.width;
-  const h = item.height;
-  if (typeof w === "number" && typeof h === "number" && w > 0 && h > 0) {
-    return `${w} / ${h}`;
-  }
-  return fallback;
-}
+// Locked aspect ratios for consistent collage layouts
+const LOCKED_RATIOS = {
+  HERO_PORTRAIT: "4 / 5",
+  HERO_LANDSCAPE: "3 / 2",
+  SECONDARY: "4 / 3",
+  SQUARE: "1 / 1",
+} as const;
 
 function isPortrait(item: MediaItem): boolean {
   const w = item.width;
@@ -112,11 +111,6 @@ export default function EngageImageCollage({
   const overlayOnIndex = remaining > 0 ? visible.length - 1 : -1;
   const overlayText = remaining > 0 ? `+${remaining} more` : undefined;
 
-  // Fallback ARs (used only when metadata missing)
-  const HERO_PORTRAIT_AR = "4 / 5";
-  const SECONDARY_PORTRAIT_AR = "3 / 4";
-  const LANDSCAPE_AR = "4 / 3";
-
   const wrapperStyle: React.CSSProperties = {
     borderRadius: radiusPx,
     overflow: "hidden",
@@ -126,18 +120,18 @@ export default function EngageImageCollage({
 
   // ====== 1 IMAGE ======
   if (visible.length === 1) {
-    const fallback = heroIsPortrait ? HERO_PORTRAIT_AR : LANDSCAPE_AR;
+    const aspectRatio = heroIsPortrait ? LOCKED_RATIOS.HERO_PORTRAIT : LOCKED_RATIOS.HERO_LANDSCAPE;
     return (
       <div style={wrapperStyle}>
-        <Tile item={hero} aspectRatio={arFromItem(hero, fallback)} />
+        <Tile item={hero} aspectRatio={aspectRatio} />
       </div>
     );
   }
 
   // ====== 2 IMAGES ======
   if (visible.length === 2) {
-    // For 2-up, let each tile use its own metadata ratio; fallback uses hero orientation
-    const fallback = heroIsPortrait ? SECONDARY_PORTRAIT_AR : LANDSCAPE_AR;
+    // For 2-up: use 4:5 if hero is portrait, 1:1 if hero is landscape/square
+    const aspectRatio = heroIsPortrait ? LOCKED_RATIOS.HERO_PORTRAIT : LOCKED_RATIOS.SQUARE;
 
     return (
       <div style={wrapperStyle}>
@@ -152,7 +146,7 @@ export default function EngageImageCollage({
             <Tile
               key={it.id}
               item={it}
-              aspectRatio={arFromItem(it, fallback)}
+              aspectRatio={aspectRatio}
               overlayText={i === overlayOnIndex ? overlayText : undefined}
             />
           ))}
@@ -169,59 +163,21 @@ export default function EngageImageCollage({
       <div style={wrapperStyle}>
         <div
           style={{
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: `${portraitHeroWidthPct}fr ${100 - portraitHeroWidthPct}fr`,
             gap: gapPx,
-            alignItems: "stretch",
           }}
         >
-          {/* Left hero: height-coupled to right column; no aspect-ratio here */}
-          <div style={{ flex: "0 0 auto", width: `${portraitHeroWidthPct}%` }}>
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                height: "100%",
-                overflow: "hidden",
-              }}
-            >
-              <img
-                src={hero.src}
-                alt={hero.alt || ""}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: "center",
-                  display: "block",
-                }}
-                draggable={false}
-              />
-              {0 === overlayOnIndex && overlayText ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.45)",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 32,
-                    fontWeight: 700,
-                    letterSpacing: 0.2,
-                  }}
-                >
-                  {overlayText}
-                </div>
-              ) : null}
-            </div>
-          </div>
+          {/* Left hero with locked 4:5 aspect ratio */}
+          <Tile
+            item={hero}
+            aspectRatio={LOCKED_RATIOS.HERO_PORTRAIT}
+            overlayText={0 === overlayOnIndex ? overlayText : undefined}
+          />
 
-          {/* Right stack */}
+          {/* Right stack with locked 4:3 aspect ratios */}
           <div
             style={{
-              flex: "1 1 auto",
-              minWidth: 0,
               display: "flex",
               flexDirection: "column",
               gap: gapPx,
@@ -232,46 +188,12 @@ export default function EngageImageCollage({
               const showOverlay = visibleIndex === overlayOnIndex;
 
               return (
-                <div
+                <Tile
                   key={it.id}
-                  style={{
-                    flex: "1 1 0",
-                    minHeight: 0,
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  <img
-                    src={it.src}
-                    alt={it.alt || ""}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      objectPosition: "center",
-                      display: "block",
-                    }}
-                    draggable={false}
-                  />
-                  {showOverlay && overlayText ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        background: "rgba(0,0,0,0.45)",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 32,
-                        fontWeight: 700,
-                        letterSpacing: 0.2,
-                      }}
-                    >
-                      {overlayText}
-                    </div>
-                  ) : null}
-                </div>
+                  item={it}
+                  aspectRatio={LOCKED_RATIOS.SECONDARY}
+                  overlayText={showOverlay ? overlayText : undefined}
+                />
               );
             })}
           </div>
@@ -287,14 +209,14 @@ export default function EngageImageCollage({
   return (
     <div style={wrapperStyle}>
       <div style={{ display: "flex", flexDirection: "column", gap: gapPx }}>
-        {/* Hero */}
+        {/* Hero with locked 3:2 aspect ratio */}
         <Tile
           item={hero}
-          aspectRatio={arFromItem(hero, LANDSCAPE_AR)}
+          aspectRatio={LOCKED_RATIOS.HERO_LANDSCAPE}
           overlayText={0 === overlayOnIndex ? overlayText : undefined}
         />
 
-        {/* Bottom row */}
+        {/* Bottom row with locked 4:3 aspect ratios */}
         <div
           style={{
             display: "grid",
@@ -309,7 +231,7 @@ export default function EngageImageCollage({
               <Tile
                 key={it.id}
                 item={it}
-                aspectRatio={arFromItem(it, LANDSCAPE_AR)}
+                aspectRatio={LOCKED_RATIOS.SECONDARY}
                 overlayText={showOverlay ? overlayText : undefined}
               />
             );

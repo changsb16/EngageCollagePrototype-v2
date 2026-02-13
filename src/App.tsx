@@ -3,16 +3,12 @@ import EngagePostCard from "./components/EngagePostCard";
 import type { MediaItem } from "./components/EngageImageCollage";
 import { useLocalImages } from "./utils/useLocalImages";
 
-type RatioKey = "16:9" | "3:2" | "4:3" | "1:1" | "4:5" | "3:4" | "9:16";
-
-const RATIO_PRESETS: Record<RatioKey, { w: number; h: number; label: string }> = {
-  "16:9": { w: 1600, h: 900, label: "16:9 Landscape" },
-  "3:2": { w: 1500, h: 1000, label: "3:2 Landscape" },
-  "4:3": { w: 1600, h: 1200, label: "4:3 Landscape" },
-  "1:1": { w: 1200, h: 1200, label: "1:1 Square" },
-  "4:5": { w: 1200, h: 1500, label: "4:5 Portrait (Instagram)" },
-  "3:4": { w: 1200, h: 1600, label: "3:4 Portrait" },
-  "9:16": { w: 900, h: 1600, label: "9:16 Portrait" },
+// Locked aspect ratios that match the collage component
+const LOCKED_DIMENSIONS = {
+  HERO_PORTRAIT: { w: 1200, h: 1500 }, // 4:5
+  HERO_LANDSCAPE: { w: 1500, h: 1000 }, // 3:2
+  SECONDARY: { w: 1600, h: 1200 }, // 4:3
+  SQUARE: { w: 1200, h: 1200 }, // 1:1
 };
 
 type ScenarioKey = "1" | "2" | "3" | "4" | "7" | "missing-metadata";
@@ -109,9 +105,8 @@ export default function App() {
   const [scenario, setScenario] = useState<ScenarioKey>("4");
   const [containerWidth, setContainerWidth] = useState<number>(720);
 
-  // Ratio controls
-  const [heroRatio, setHeroRatio] = useState<RatioKey>("4:5");
-  const [secondaryRatio, setSecondaryRatio] = useState<RatioKey>("4:3");
+  // Hero orientation control (for testing layouts)
+  const [heroOrientation, setHeroOrientation] = useState<"portrait" | "landscape">("portrait");
 
   // Photo set controls
   const [photoSet, setPhotoSet] = useState<PhotoSetKey>("local");
@@ -134,13 +129,15 @@ export default function App() {
     setPhotoOffset(Math.floor(Math.random() * maxOffset));
   };
 
-  const heroPreset = RATIO_PRESETS[heroRatio];
-  const secondaryPreset = RATIO_PRESETS[secondaryRatio];
-
   const scenarioCount = useMemo(() => {
     const found = SCENARIOS.find((s) => s.key === scenario);
     return found?.count ?? 4;
   }, [scenario]);
+
+  // Get dimensions based on hero orientation
+  const heroDimensions = heroOrientation === "portrait"
+    ? LOCKED_DIMENSIONS.HERO_PORTRAIT
+    : LOCKED_DIMENSIONS.HERO_LANDSCAPE;
 
   const mediaItems: MediaItem[] = useMemo(() => {
     // Special handling for local images
@@ -148,19 +145,19 @@ export default function App() {
       if (localImageItems.length === 0) {
         return [];
       }
-      // Apply selected aspect ratios to local images for testing
+      // Apply locked dimensions to local images for testing
       // Use offset to rotate through different photos
       const items: MediaItem[] = [];
       for (let i = 0; i < scenarioCount; i++) {
         const itemIndex = (photoOffset + i) % localImageItems.length;
         const item = localImageItems[itemIndex];
         const isHero = i === 0;
-        const preset = isHero ? heroPreset : secondaryPreset;
+        const dims = isHero ? heroDimensions : LOCKED_DIMENSIONS.SECONDARY;
 
         items.push({
           ...item,
-          width: preset.w,
-          height: preset.h,
+          width: dims.w,
+          height: dims.h,
         });
       }
       return items;
@@ -181,8 +178,8 @@ export default function App() {
         : makeUnsplashItem(
             "1",
             set.hero[heroIndex],
-            heroPreset.w,
-            heroPreset.h,
+            heroDimensions.w,
+            heroDimensions.h,
             `Hero (${set.label})`
           );
 
@@ -203,8 +200,8 @@ export default function App() {
         return makeUnsplashItem(
           id,
           photoId,
-          secondaryPreset.w,
-          secondaryPreset.h,
+          LOCKED_DIMENSIONS.SECONDARY.w,
+          LOCKED_DIMENSIONS.SECONDARY.h,
           `Secondary (${set.label})`
         );
       }
@@ -214,25 +211,17 @@ export default function App() {
   }, [
     scenario,
     scenarioCount,
-    heroPreset.w,
-    heroPreset.h,
-    secondaryPreset.w,
-    secondaryPreset.h,
-    heroRatio,
-    secondaryRatio,
+    heroDimensions,
+    heroOrientation,
     photoSet,
     localImageItems,
     photoOffset,
   ]);
 
-  const heroOrientation =
+  const detectedOrientation =
     scenario === "missing-metadata"
       ? "unknown (no metadata)"
-      : heroPreset.h > heroPreset.w
-      ? "portrait"
-      : heroPreset.h < heroPreset.w
-      ? "landscape"
-      : "square";
+      : heroOrientation;
 
   return (
     <div
@@ -284,27 +273,13 @@ export default function App() {
           </label>
 
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            Hero ratio
-            <select value={heroRatio} onChange={(e) => setHeroRatio(e.target.value as RatioKey)}>
-              {Object.entries(RATIO_PRESETS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            Secondary ratio
+            Hero orientation
             <select
-              value={secondaryRatio}
-              onChange={(e) => setSecondaryRatio(e.target.value as RatioKey)}
+              value={heroOrientation}
+              onChange={(e) => setHeroOrientation(e.target.value as "portrait" | "landscape")}
             >
-              {Object.entries(RATIO_PRESETS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}
-                </option>
-              ))}
+              <option value="portrait">Portrait (4:5)</option>
+              <option value="landscape">Landscape (3:2)</option>
             </select>
           </label>
 
@@ -336,7 +311,7 @@ export default function App() {
           </button>
 
           <div style={{ color: "#6b7280", fontSize: 13 }}>
-            Hero: {heroPreset.w}×{heroPreset.h} → {heroOrientation}
+            Detected: {detectedOrientation} • Secondaries: 4:3
           </div>
 
           <div style={{ color: "#6b7280", fontSize: 13 }}>
@@ -381,7 +356,7 @@ export default function App() {
             }}
             dateText="Oct 22, 2025"
             seenByCount={274}
-            text={`Scenario: ${scenario} images\nPhoto set: ${PHOTO_SETS[photoSet].label}\nHero ratio: ${heroRatio} | Secondary ratio: ${secondaryRatio}\nPrototype: improved Engage collage (no gray filler, center crop, orientation-aware hero).`}
+            text={`Scenario: ${scenario} images\nPhoto set: ${PHOTO_SETS[photoSet].label}\nHero: ${heroOrientation === "portrait" ? "4:5 portrait" : "3:2 landscape"} | Secondaries: 4:3 landscape\nPrototype: locked aspect ratios for consistent feed appearance.`}
             mediaItems={mediaItems}
             reactionsSummary={{ topReactorName: "Venkat Ayyadevara", othersCount: 43 }}
           />
