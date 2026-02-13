@@ -175,7 +175,26 @@ export default function EngageImageCollage({
 
   // ====== 1 IMAGE ======
   if (visible.length === 1) {
-    const aspectRatio = heroIsPortrait ? LOCKED_RATIOS.HERO_PORTRAIT : LOCKED_RATIOS.HERO_LANDSCAPE;
+    // For single images, use natural aspect ratio unless it's too extreme
+    let aspectRatio: string;
+
+    if (hero.width && hero.height && hero.width > 0 && hero.height > 0) {
+      const naturalRatio = hero.height / hero.width;
+      // Cap portrait at 1.5:1 (prevents very tall images like 9:16)
+      // Cap landscape at 0.5:1 (prevents very wide images like 16:9)
+      if (naturalRatio > 1.5) {
+        aspectRatio = LOCKED_RATIOS.HERO_PORTRAIT; // 4:5 = 1.25
+      } else if (naturalRatio < 0.5) {
+        aspectRatio = LOCKED_RATIOS.HERO_LANDSCAPE; // 3:2 = 0.667
+      } else {
+        // Use natural aspect ratio
+        aspectRatio = `${hero.width} / ${hero.height}`;
+      }
+    } else {
+      // Fallback to locked ratios if no metadata
+      aspectRatio = heroIsPortrait ? LOCKED_RATIOS.HERO_PORTRAIT : LOCKED_RATIOS.HERO_LANDSCAPE;
+    }
+
     return (
       <>
         <div style={wrapperStyle}>
