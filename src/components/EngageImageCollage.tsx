@@ -241,6 +241,14 @@ export default function EngageImageCollage({
   if (heroIsPortrait) {
     const rightStack = secondary.slice(0, Math.min(3, secondaryCount));
 
+    // Layout strategy based on TOTAL images (hero + secondaries):
+    // - 4 images (1 hero + 3 secondaries): use space-between with locked aspect ratios
+    // - 3 images (1 hero + 2 secondaries): use space-between to align top/bottom
+    // - 2 images (1 hero + 1 secondary): center it vertically with locked aspect ratio
+    const totalImages = 1 + rightStack.length;
+    const useSpaceBetween = totalImages >= 4 || totalImages === 3;
+    const useFlexibleHeight = totalImages === 3; // For 3 images, still use flexible height but with space-between
+
     return (
       <>
         <div style={wrapperStyle}>
@@ -259,12 +267,13 @@ export default function EngageImageCollage({
               onClick={() => setPreviewItem(hero)}
             />
 
-            {/* Right stack with locked 4:3 aspect ratios */}
+            {/* Right stack - flexible layout based on count */}
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "space-between",
+                gap: useSpaceBetween ? 0 : gapPx,
+                justifyContent: useSpaceBetween ? "space-between" : totalImages === 2 ? "center" : "flex-start",
                 height: "100%",
               }}
             >
@@ -272,6 +281,57 @@ export default function EngageImageCollage({
                 const visibleIndex = idx + 1; // hero is index 0
                 const showOverlay = visibleIndex === overlayOnIndex;
 
+                // For 3 total images (1 hero + 2 secondaries), use explicit 50% height
+                // This ensures perfect alignment with space-between
+                if (useFlexibleHeight) {
+                  return (
+                    <div
+                      key={it.id}
+                      style={{
+                        position: "relative",
+                        height: "50%",
+                        width: "100%",
+                        overflow: "hidden",
+                        background: "transparent",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => setPreviewItem(it)}
+                    >
+                      <img
+                        src={it.src}
+                        alt={it.alt || ""}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "block",
+                          objectFit: "cover",
+                          objectPosition: "center",
+                        }}
+                        draggable={false}
+                      />
+                      {showOverlay ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: "rgba(0,0,0,0.45)",
+                            color: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 32,
+                            fontWeight: 700,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {overlayText}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                // For 1 or 3 images, use locked aspect ratios
                 return (
                   <Tile
                     key={it.id}

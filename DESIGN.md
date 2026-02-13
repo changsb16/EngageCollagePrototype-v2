@@ -54,7 +54,29 @@ For demo purposes with Unsplash API images, orientation is randomly assigned on 
 - **Portrait Hero:** Two 4:5 tiles side-by-side (1fr 1fr grid)
 - **Landscape Hero:** Two 1:1 tiles side-by-side (1fr 1fr grid)
 
-### 3-4+ Images (Portrait Hero)
+### 3 Images (Portrait Hero)
+```
+┌─────────┬───┐
+│         │ 2 │
+│    1    │   │
+│  (4:5)  │   │
+│         │ 3 │
+└─────────┴───┘
+```
+
+**Facebook/LinkedIn-style flexible height approach:**
+- Hero: Left column, 66% width, 4:5 locked aspect ratio
+- 2 Secondaries: Right column, each at **50% height** (no locked aspect ratio)
+- Positioning: `justifyContent: "space-between"` with no gap
+- Result: Top secondary aligns with hero top, bottom secondary aligns with hero bottom
+
+**Why flexible height for 3 images?**
+- Prevents empty white space at the bottom
+- Matches how Facebook and LinkedIn handle 3-image layouts
+- Ensures perfect top/bottom alignment regardless of image dimensions
+- Images use `object-fit: cover` to fill their container while maintaining proper cropping
+
+### 4+ Images (Portrait Hero)
 ```
 ┌─────────┬───┐
 │         │ 2 │
@@ -65,9 +87,10 @@ For demo purposes with Unsplash API images, orientation is randomly assigned on 
 └─────────┴───┘
 ```
 
-- Hero: Left column, 66% width, 4:5 aspect ratio
-- Secondaries: Right column, stacked vertically, 4:3 aspect ratio each
-- Layout: CSS Grid with `justifyContent: "space-between"` to align top/bottom
+- Hero: Left column, 66% width, 4:5 locked aspect ratio
+- 3 Secondaries: Right column, stacked vertically, 4:3 locked aspect ratio each
+- Positioning: `justifyContent: "space-between"` with no gap
+- Result: Secondaries evenly distributed (top, middle, bottom)
 
 ### 3-4+ Images (Landscape Hero)
 ```
@@ -127,10 +150,12 @@ Clicking any image opens a full-screen modal with:
 - Not too wide (avoids 16:9 extreme)
 - Works well with horizontal secondary grid
 
-### Why 4:3 for All Secondaries?
+### Why 4:3 for Secondary Images (When Used)?
 - Versatile ratio that works for both portrait and landscape secondaries
-- Prevents awkward tall tiles in right column (portrait hero layout)
+- Used for 4+ image layouts to maintain consistency
 - Creates visual balance without extreme proportions
+
+**Exception:** For 3-image layouts with portrait hero, secondaries use flexible height (50% each) instead of locked aspect ratios to ensure perfect alignment with the hero and eliminate empty space
 
 ### Portrait Hero Width: 66%
 - Gives hero prominence without overwhelming secondaries
