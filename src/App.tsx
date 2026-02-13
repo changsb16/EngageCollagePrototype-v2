@@ -103,14 +103,12 @@ function makeUnsplashItem(
 
 export default function App() {
   const [scenario, setScenario] = useState<ScenarioKey>("4");
-  const [containerWidth, setContainerWidth] = useState<number>(720);
-
-  // Hero orientation control (for testing layouts)
-  const [heroOrientation, setHeroOrientation] = useState<"portrait" | "landscape">("portrait");
+  const [containerWidth, setContainerWidth] = useState<number>(600);
 
   // Photo set controls
   const [photoSet, setPhotoSet] = useState<PhotoSetKey>("local");
   const [photoOffset, setPhotoOffset] = useState<number>(0);
+  const [forceOrientation, setForceOrientation] = useState<"portrait" | "landscape" | null>(null);
 
   // Load local images dynamically
   const { items: localImageItems, isLoading: localImagesLoading, error: localImagesError } = useLocalImages();
@@ -119,14 +117,17 @@ export default function App() {
   const handlePhotoSetChange = (newPhotoSet: PhotoSetKey) => {
     setPhotoSet(newPhotoSet);
     setPhotoOffset(0);
+    setForceOrientation(null);
   };
 
-  // Rotate to random set of photos
+  // Rotate to random set of photos and optionally randomize orientation for Unsplash
   const handleRotatePhotos = () => {
     const maxOffset = photoSet === "local"
       ? localImageItems.length
       : Math.max(PHOTO_SETS[photoSet].hero.length, PHOTO_SETS[photoSet].secondary.length);
     setPhotoOffset(Math.floor(Math.random() * maxOffset));
+    // Only force orientation for Unsplash images (local images will auto-detect)
+    setForceOrientation(photoSet === "local" ? null : (Math.random() > 0.5 ? "portrait" : "landscape"));
   };
 
   const scenarioCount = useMemo(() => {
@@ -134,25 +135,28 @@ export default function App() {
     return found?.count ?? 4;
   }, [scenario]);
 
-  // Get dimensions based on hero orientation
-  const heroDimensions = heroOrientation === "portrait"
-    ? LOCKED_DIMENSIONS.HERO_PORTRAIT
-    : LOCKED_DIMENSIONS.HERO_LANDSCAPE;
-
   const mediaItems: MediaItem[] = useMemo(() => {
-    // Special handling for local images
+    // Special handling for local images - detect orientation from natural dimensions
     if (photoSet === "local") {
       if (localImageItems.length === 0) {
         return [];
       }
-      // Apply locked dimensions to local images for testing
-      // Use offset to rotate through different photos
+      // Detect hero orientation from actual image dimensions
+      const heroIndex = photoOffset % localImageItems.length;
+      const heroItem = localImageItems[heroIndex];
+      const heroIsPortrait = heroItem.height && heroItem.width ? heroItem.height > heroItem.width : false;
+
+      // Apply locked dimensions based on detected orientation
       const items: MediaItem[] = [];
       for (let i = 0; i < scenarioCount; i++) {
         const itemIndex = (photoOffset + i) % localImageItems.length;
         const item = localImageItems[itemIndex];
         const isHero = i === 0;
-        const dims = isHero ? heroDimensions : LOCKED_DIMENSIONS.SECONDARY;
+
+        // Choose dimensions based on detected hero orientation
+        const dims = isHero
+          ? (heroIsPortrait ? LOCKED_DIMENSIONS.HERO_PORTRAIT : LOCKED_DIMENSIONS.HERO_LANDSCAPE)
+          : LOCKED_DIMENSIONS.SECONDARY;
 
         items.push({
           ...item,
@@ -166,6 +170,12 @@ export default function App() {
     // Existing Unsplash logic with offset
     const set = PHOTO_SETS[photoSet];
     const heroIndex = photoOffset % set.hero.length;
+
+    // Use forceOrientation for Unsplash images (defaults to portrait if not set)
+    const heroOrientation = forceOrientation || "portrait";
+    const heroDimensions = heroOrientation === "portrait"
+      ? LOCKED_DIMENSIONS.HERO_PORTRAIT
+      : LOCKED_DIMENSIONS.HERO_LANDSCAPE;
 
     const hero: MediaItem =
       scenario === "missing-metadata"
@@ -211,17 +221,25 @@ export default function App() {
   }, [
     scenario,
     scenarioCount,
-    heroDimensions,
-    heroOrientation,
     photoSet,
     localImageItems,
     photoOffset,
+    forceOrientation,
   ]);
 
-  const detectedOrientation =
-    scenario === "missing-metadata"
-      ? "unknown (no metadata)"
-      : heroOrientation;
+  // Get detected orientation for display
+  const detectedOrientation = useMemo(() => {
+    if (scenario === "missing-metadata") {
+      return "unknown (no metadata)";
+    }
+    if (photoSet === "local" && localImageItems.length > 0) {
+      const heroIndex = photoOffset % localImageItems.length;
+      const heroItem = localImageItems[heroIndex];
+      const heroIsPortrait = heroItem.height && heroItem.width ? heroItem.height > heroItem.width : false;
+      return heroIsPortrait ? "portrait" : "landscape";
+    }
+    return forceOrientation || "portrait";
+  }, [scenario, photoSet, localImageItems, photoOffset, forceOrientation]);
 
   return (
     <div
@@ -273,17 +291,6 @@ export default function App() {
           </label>
 
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            Hero orientation
-            <select
-              value={heroOrientation}
-              onChange={(e) => setHeroOrientation(e.target.value as "portrait" | "landscape")}
-            >
-              <option value="portrait">Portrait (4:5)</option>
-              <option value="landscape">Landscape (3:2)</option>
-            </select>
-          </label>
-
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
             Photo set
             <select value={photoSet} onChange={(e) => handlePhotoSetChange(e.target.value as PhotoSetKey)}>
               {Object.entries(PHOTO_SETS).map(([k, v]) => (
@@ -311,7 +318,7 @@ export default function App() {
           </button>
 
           <div style={{ color: "#6b7280", fontSize: 13 }}>
-            Detected: {detectedOrientation} • Secondaries: 4:3
+            Auto-detected: {detectedOrientation} hero • 4:3 secondaries
           </div>
 
           <div style={{ color: "#6b7280", fontSize: 13 }}>
@@ -356,7 +363,7 @@ export default function App() {
             }}
             dateText="Oct 22, 2025"
             seenByCount={274}
-            text={`Scenario: ${scenario} images\nPhoto set: ${PHOTO_SETS[photoSet].label}\nHero: ${heroOrientation === "portrait" ? "4:5 portrait" : "3:2 landscape"} | Secondaries: 4:3 landscape\nPrototype: locked aspect ratios for consistent feed appearance.`}
+            text={`Scenario: ${scenario} images\nPhoto set: ${PHOTO_SETS[photoSet].label} (${detectedOrientation} hero)\nAuto-detected ratios: ${detectedOrientation === "portrait" ? "4:5 hero" : "3:2 hero"} + 4:3 secondaries\nPrototype: Smart orientation detection with locked aspect ratios.`}
             mediaItems={mediaItems}
             reactionsSummary={{ topReactorName: "Venkat Ayyadevara", othersCount: 43 }}
           />

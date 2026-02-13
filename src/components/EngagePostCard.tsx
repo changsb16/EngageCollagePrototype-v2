@@ -105,8 +105,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 12,
     boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)",
     padding: 16,
-    maxWidth: 500,
-    margin: "0 auto",
     fontFamily:
       'Segoe UI, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
     color: "#1f2937",

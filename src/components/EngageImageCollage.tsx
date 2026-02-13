@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 export type MediaItem = {
   id: string;
@@ -38,10 +38,12 @@ function Tile({
   item,
   aspectRatio,
   overlayText,
+  onClick,
 }: {
   item: MediaItem;
   aspectRatio: string; // e.g. "4 / 5"
   overlayText?: string;
+  onClick?: () => void;
 }) {
   return (
     <div
@@ -51,7 +53,9 @@ function Tile({
         aspectRatio,
         overflow: "hidden",
         background: "transparent",
+        cursor: onClick ? "pointer" : "default",
       }}
+      onClick={onClick}
     >
       <img
         src={item.src}
@@ -95,6 +99,8 @@ export default function EngageImageCollage({
   radiusPx = 12,
   portraitHeroWidthPct = 66,
 }: EngageImageCollageProps) {
+  const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
+
   const safeItems = Array.isArray(items) ? items : [];
   if (safeItems.length === 0) return null;
 
@@ -118,13 +124,65 @@ export default function EngageImageCollage({
     width: "100%",
   };
 
+  // Preview modal
+  const PreviewModal = previewItem ? (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0, 0, 0, 0.9)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: 20,
+      }}
+      onClick={() => setPreviewItem(null)}
+    >
+      <button
+        onClick={() => setPreviewItem(null)}
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 20,
+          background: "rgba(255, 255, 255, 0.2)",
+          border: "none",
+          color: "white",
+          fontSize: 32,
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        ×
+      </button>
+      <img
+        src={previewItem.src}
+        alt={previewItem.alt || ""}
+        style={{
+          maxWidth: "90%",
+          maxHeight: "90%",
+          objectFit: "contain",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  ) : null;
+
   // ====== 1 IMAGE ======
   if (visible.length === 1) {
     const aspectRatio = heroIsPortrait ? LOCKED_RATIOS.HERO_PORTRAIT : LOCKED_RATIOS.HERO_LANDSCAPE;
     return (
-      <div style={wrapperStyle}>
-        <Tile item={hero} aspectRatio={aspectRatio} />
-      </div>
+      <>
+        <div style={wrapperStyle}>
+          <Tile item={hero} aspectRatio={aspectRatio} onClick={() => setPreviewItem(hero)} />
+        </div>
+        {PreviewModal}
+      </>
     );
   }
 
@@ -134,24 +192,28 @@ export default function EngageImageCollage({
     const aspectRatio = heroIsPortrait ? LOCKED_RATIOS.HERO_PORTRAIT : LOCKED_RATIOS.SQUARE;
 
     return (
-      <div style={wrapperStyle}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: gapPx,
-          }}
-        >
-          {visible.map((it, i) => (
-            <Tile
-              key={it.id}
-              item={it}
-              aspectRatio={aspectRatio}
-              overlayText={i === overlayOnIndex ? overlayText : undefined}
-            />
-          ))}
+      <>
+        <div style={wrapperStyle}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: gapPx,
+            }}
+          >
+            {visible.map((it, i) => (
+              <Tile
+                key={it.id}
+                item={it}
+                aspectRatio={aspectRatio}
+                overlayText={i === overlayOnIndex ? overlayText : undefined}
+                onClick={() => setPreviewItem(it)}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+        {PreviewModal}
+      </>
     );
   }
 
@@ -160,45 +222,51 @@ export default function EngageImageCollage({
     const rightStack = secondary.slice(0, Math.min(3, secondaryCount));
 
     return (
-      <div style={wrapperStyle}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `${portraitHeroWidthPct}fr ${100 - portraitHeroWidthPct}fr`,
-            gap: gapPx,
-          }}
-        >
-          {/* Left hero with locked 4:5 aspect ratio */}
-          <Tile
-            item={hero}
-            aspectRatio={LOCKED_RATIOS.HERO_PORTRAIT}
-            overlayText={0 === overlayOnIndex ? overlayText : undefined}
-          />
-
-          {/* Right stack with locked 4:3 aspect ratios */}
+      <>
+        <div style={wrapperStyle}>
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
+              display: "grid",
+              gridTemplateColumns: `${portraitHeroWidthPct}fr ${100 - portraitHeroWidthPct}fr`,
               gap: gapPx,
             }}
           >
-            {rightStack.map((it, idx) => {
-              const visibleIndex = idx + 1; // hero is index 0
-              const showOverlay = visibleIndex === overlayOnIndex;
+            {/* Left hero with locked 4:5 aspect ratio */}
+            <Tile
+              item={hero}
+              aspectRatio={LOCKED_RATIOS.HERO_PORTRAIT}
+              overlayText={0 === overlayOnIndex ? overlayText : undefined}
+              onClick={() => setPreviewItem(hero)}
+            />
 
-              return (
-                <Tile
-                  key={it.id}
-                  item={it}
-                  aspectRatio={LOCKED_RATIOS.SECONDARY}
-                  overlayText={showOverlay ? overlayText : undefined}
-                />
-              );
-            })}
+            {/* Right stack with locked 4:3 aspect ratios */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                height: "100%",
+              }}
+            >
+              {rightStack.map((it, idx) => {
+                const visibleIndex = idx + 1; // hero is index 0
+                const showOverlay = visibleIndex === overlayOnIndex;
+
+                return (
+                  <Tile
+                    key={it.id}
+                    item={it}
+                    aspectRatio={LOCKED_RATIOS.SECONDARY}
+                    overlayText={showOverlay ? overlayText : undefined}
+                    onClick={() => setPreviewItem(it)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+        {PreviewModal}
+      </>
     );
   }
 
@@ -207,37 +275,42 @@ export default function EngageImageCollage({
   const cols = bottomRow.length;
 
   return (
-    <div style={wrapperStyle}>
-      <div style={{ display: "flex", flexDirection: "column", gap: gapPx }}>
-        {/* Hero with locked 3:2 aspect ratio */}
-        <Tile
-          item={hero}
-          aspectRatio={LOCKED_RATIOS.HERO_LANDSCAPE}
-          overlayText={0 === overlayOnIndex ? overlayText : undefined}
-        />
+    <>
+      <div style={wrapperStyle}>
+        <div style={{ display: "flex", flexDirection: "column", gap: gapPx }}>
+          {/* Hero with locked 3:2 aspect ratio */}
+          <Tile
+            item={hero}
+            aspectRatio={LOCKED_RATIOS.HERO_LANDSCAPE}
+            overlayText={0 === overlayOnIndex ? overlayText : undefined}
+            onClick={() => setPreviewItem(hero)}
+          />
 
-        {/* Bottom row with locked 4:3 aspect ratios */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gap: gapPx,
-          }}
-        >
-          {bottomRow.map((it, idx) => {
-            const visibleIndex = idx + 1;
-            const showOverlay = visibleIndex === overlayOnIndex;
-            return (
-              <Tile
-                key={it.id}
-                item={it}
-                aspectRatio={LOCKED_RATIOS.SECONDARY}
-                overlayText={showOverlay ? overlayText : undefined}
-              />
-            );
-          })}
+          {/* Bottom row with locked 4:3 aspect ratios */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${cols}, 1fr)`,
+              gap: gapPx,
+            }}
+          >
+            {bottomRow.map((it, idx) => {
+              const visibleIndex = idx + 1;
+              const showOverlay = visibleIndex === overlayOnIndex;
+              return (
+                <Tile
+                  key={it.id}
+                  item={it}
+                  aspectRatio={LOCKED_RATIOS.SECONDARY}
+                  overlayText={showOverlay ? overlayText : undefined}
+                  onClick={() => setPreviewItem(it)}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+      {PreviewModal}
+    </>
   );
 }
